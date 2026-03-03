@@ -1,7 +1,7 @@
 # SynthMorph
 
 Open-source agent code for the paper:
-**"Semantic Structure-Property Alignment via Cross-Modal Contrastive Learning in Mechanical Metamaterials"**.
+**"Contrastive Learning Representations for Enhancing Surrogate and Generative Modeling in Mechanical Metamaterials"**.
 
 ## Overview
 
