@@ -18,3 +18,10 @@ cd Path/To/Your/SynthMorph
 pip install -e . "langgraph-cli[inmem]"
 langgraph dev
 ```
+
+```shell
+git add .
+git status 
+git commit -m "update"
+git push -u origin main 
+```

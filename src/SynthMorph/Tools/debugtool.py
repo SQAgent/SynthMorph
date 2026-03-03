@@ -11,8 +11,8 @@ from langchain_core.messages import (
 
 def save_state_to_json(state, filename="state_dump.json"):
     """
-    将state对象保存为json文件，默认文件名为state_dump.json。
-    支持消息对象和BaseModel的序列化。
+    Save the state object as a JSON file, default filename is state_dump.json.
+    Supports serialization of message objects and BaseModel.
     """
     def serialize(obj):
         if isinstance(obj, (HumanMessage, AIMessage, SystemMessage, ToolMessage)):
@@ -20,7 +20,7 @@ def save_state_to_json(state, filename="state_dump.json"):
         if isinstance(obj, BaseModel):
             return obj.model_dump()
         # if isinstance(obj, HunyuanConfig):
-        #     # 假设 HunyuanConfig 有一个 to_dict 方法
+        #     # Assume HunyuanConfig has a to_dict method
         #     return obj.to_dict() if hasattr(obj, 'to_dict') else obj.__dict__
         if isinstance(obj, (list, dict, str, int, float, bool, type(None))):
             return obj
@@ -34,13 +34,13 @@ def save_state_to_json(state, filename="state_dump.json"):
 
     
 def save_graph_image(graph,filename="graph.png"):
-    # 将StateGraph对象保存为PNG图像文件
+    # Save StateGraph object as PNG image file
     from IPython.display import Image, display
     try:
         png_bytes = graph.get_graph().draw_mermaid_png()
         with open(filename, "wb") as f:
             f.write(png_bytes)
-        print(f"graph image saved to {filename}")
+        print(f"Graph image saved to {filename}")
     except Exception as e:
-        print(f"无法生成或保存图像: {e}")
+        print(f"Unable to generate or save image: {e}")
         pass

@@ -25,7 +25,6 @@ NumGpu = 0
 Subroutine = '/home/shangqing/sqdata/model/wmh/uhyper_gent.f'
 # file_path = "/home/shangqing/sqdata/project/sqagents/bin/CAE_FE/debug/test.txt"
 
-# 默认在 test.txt 同级目录下生成结果
 
 import sys
 print(len(sys.argv))

@@ -4,8 +4,8 @@ Created on Tue Dec 16 14:53:04 2025
 
 @author: Administrator
 """
-# abaqus脚本，用于执行有限元建模和计算
-# 注意必须在abaqus cae noGUI模式下运行
+# Abaqus script, used for performing finite element modeling and calculation
+# Note: Must be run in Abaqus CAE noGUI mode
 
 
 
@@ -32,7 +32,7 @@ NumGpu = 0
 import sys
 print(len(sys.argv))
 if len(sys.argv) != 10:
-    print("用法: abq2022 cae noGUI=LLM_CAE_FE_2.py -- <output_path> <file_path>")
+    print("useage: abq2022 cae noGUI=LLM_CAE_FE_2.py -- <output_path> <file_path>")
     sys.exit(1)
 output_path = sys.argv[-2]
 file_path = sys.argv[-1]

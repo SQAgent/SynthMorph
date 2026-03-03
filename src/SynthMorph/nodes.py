@@ -102,7 +102,7 @@ def NODE_analyze_C(state:SPAgentState) -> SPAgentState:
         think_part, tool_call_content, response_part = QwenProcess(response.content)
         state["messages"].append(
             AIMessage(content_blocks=[
-                    {"type": "text", "text": response_part},  # LLM分析文本
+                    {"type": "text", "text": response_part},  
                     # {
                     #     "type": "image",
                     #     "source_type": "base64",
@@ -112,7 +112,7 @@ def NODE_analyze_C(state:SPAgentState) -> SPAgentState:
                     # }
                 ])
             )
-        # state["PredictedElasticPerformance"] = None # 重置，避免重复调用
+        # state["PredictedElasticPerformance"] = None 
     return state
 ###########################################################################################################################################################
 @tool
@@ -132,14 +132,11 @@ def update_matrix_elements(
     invalid_keys = set(elements.keys()) - valid_elements
     if invalid_keys:
         raise ValueError(f"Invalid matrix element names: {', '.join(invalid_keys)}")
-
-    # 过滤出有效的元素
     update_data = {key: value for key, value in elements.items() if key in valid_elements}
 
     if not update_data:
         raise ValueError("No valid matrix elements provided for update.")
 
-    # 更新状态并附加一条 ToolMessage
     return Command(
         update={
             **update_data,
@@ -165,33 +162,28 @@ def model_node(state: SPAgentState) -> SPAgentState:
     print("[DEBUG] model_node")
     print("[DEBUG] model_node WORKDIR:", state.get("WORKDIR"))
     messages: List[Any] = state.get("messages", [])
-    # 创建用于 LLM 处理的消息副本，删除图片数据  
+
     llm_messages = []  
     for msg in messages:  
-        if hasattr(msg, 'content') and isinstance(msg.content, list):  
-            # 处理多模态内容（包含图片的情况）  
+        if hasattr(msg, 'content') and isinstance(msg.content, list):    
             filtered_content = []  
             for content_item in msg.content:  
                 if isinstance(content_item, dict) and content_item.get("type") == "image":  
-                    # 跳过图片内容  
                     continue  
                 elif isinstance(content_item, dict) and content_item.get("type") == "image_url":  
-                    # 跳过图片 URL  
                     continue  
                 else:  
                     filtered_content.append(content_item)  
-              
-            # 创建新消息，保留原始属性但过滤内容  
             if filtered_content:  
                 new_msg = msg.__class__(content=filtered_content)  
-                # 复制其他属性  
+
                 if hasattr(msg, 'id'):  
                     new_msg.id = msg.id  
                 if hasattr(msg, 'name'):  
                     new_msg.name = msg.name  
                 llm_messages.append(new_msg)  
         else:  
-            # 文本消息直接添加  
+ 
             llm_messages.append(msg)
 
     SYSTEM_PROMPT = SystemMessage(
@@ -207,8 +199,7 @@ def model_node(state: SPAgentState) -> SPAgentState:
             "Note: Units are GPa."
         )
     )
-
-    # 确保第一个是 system prompt  
+ 
     has_system = any(isinstance(m, SystemMessage) for m in llm_messages)  
     if not has_system:  
         llm_messages = [SYSTEM_PROMPT] + llm_messages  
@@ -219,13 +210,12 @@ def model_node(state: SPAgentState) -> SPAgentState:
     print("[DEBUG] LLM think_part:", think_part)
     print("[DEBUG] LLM response_part:", response_part)
     if not tool_call_content:
-        # 如果没有工具调用内容，直接返回状态并添加 AIMessage
         state["messages"].append(AIMessage(content=response_part))
     else:
         tool_call_object = tool_call(
             name=tool_call_content["name"],
             args=tool_call_content["arguments"],
-            id=str(uuid.uuid4())  # 可以根据需要生成唯一 ID
+            id=str(uuid.uuid4()) 
         )
         state["messages"].append(AIMessage(content = response_part, tool_calls=[tool_call_object]))
     return state
@@ -246,13 +236,11 @@ def NODE_predict_image_from_c(state: SPAgentState) -> Dict[str, Any]:
         output_path, C_end = predict(Picture_path = None, C=C_matrix,output_dir=state["WORKDIR"])
         image_path = os.path.join(state.get("WORKDIR"), "generate.png")
         state["PredictedStructureImage"] = image_path
-        # 验证生成的图片路径是否存在
         if not os.path.exists(image_path):
             raise FileNotFoundError(f"Generated image path is invalid or the file does not exist: {image_path}")
         return state
 
     except Exception as e:
-        # 捕获异常并记录错误日志
         print(f"[ERROR] Error while generating the predicted structure image: {e}")
         raise RuntimeError("Failed to generate the predicted structure image. Please check the input data and model configuration.") from e
     
@@ -271,14 +259,12 @@ def check_matrix_completion(state: SPAgentState) -> Command:
         C23=state.get("C23"),  
         C33=state.get("C33"),  
     )  
-    # 检查最后一个用户消息，如果包含图片则进入性能预测模块
     missing_elements = []  
     for field_name in ["C11", "C12", "C13", "C22", "C23", "C33"]:  
         if getattr(matrix, field_name) is None:  
             missing_elements.append(field_name)  
 
     if missing_elements:  
-        # 生成进度信息  
         question = f"""
         📋 Elastic stiffness matrix collection progress
 
@@ -296,7 +282,6 @@ def check_matrix_completion(state: SPAgentState) -> Command:
   
         print(f"[CHECK] Matrix not complete, missing: {missing_elements}")  
           
-        # 使用结构化的 interrupt 数据  
         interrupt({  
             "action_request": {  
                 "action": "Provide stiffness matrix elements",  
@@ -312,12 +297,11 @@ def check_matrix_completion(state: SPAgentState) -> Command:
 
 def NODE_show_figure(state: SPAgentState) -> SPAgentState:
     "Node that displays the predicted structure."
-    # 输出预测结构的图片
     print("[DEBUG] NODE_show_figure")
     if state.get("CurrentTask") == "predict_c_from_image":
         image = state.get("user_input_image")
         gif_path = None
-        # state["user_input_image"] = None  # 重置，避免重复调用
+        # state["user_input_image"] = None
 
     elif state.get("CurrentTask") == "predict_image_from_c":
         image = state.get("PredictedStructureImage")
@@ -384,16 +368,15 @@ def NODE_Structure_Create(state:SPAgentState)-> SPAgentState:
             }
         },
         config=HumanInterruptConfig(
-            allow_ignore=True,  # 跳过
-            allow_accept=True,  # 同意
+            allow_ignore=True,  
+            allow_accept=True, 
             allow_edit=False,
             allow_respond=False, 
         ),
         description="CAE model create",
-        # id="structure_create"
     )
 
-    resp = interrupt([review_request])[0] # 等待用户响应
+    resp = interrupt([review_request])[0]
     if resp["type"] == "ignore":
         state["messages"].append(AIMessage(content="Skip the finite element simulation."))
         return state
@@ -418,12 +401,11 @@ def NODE_Structure_Create(state:SPAgentState)-> SPAgentState:
         return state
     
     Abq_Create_model_path = os.path.abspath("./bin/CAE_FE/Abq_Create_model.py")
-    # AbqScript_path = os.path.abspath("./bin/CAE_FE/AbqScript.py")
     cmd = ["/home/shangqing/ABAQUS22/Commands/abq2022", "cae", f"noGUI={Abq_Create_model_path}","--", "./", contour_path]
     print("FEM CMD:", cmd)
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, cwd=calc_path)
-        try:# 写日志
+        try:
             with open(os.path.join(calc_path, "abq.log"), "w") as logf:
                 logf.write("STDOUT:\n" + result.stdout + "\n\nSTDERR:\n" + result.stderr)
         except Exception as logerr:
@@ -488,7 +470,6 @@ def NODE_FEM_calc(state: SPAgentState) -> SPAgentState:
         state["messages"].append(AIMessage(content="Structure image not found. Finite element simulation cannot proceed."))
         return state
     # 2. FEM calculation NEW
-    # 将图片转换成灰度图
     from_image_to_contour(image_path, calc_path)
     contour_path = os.path.join(calc_path, "test.txt")
     contour_path = os.path.abspath(contour_path)
@@ -501,20 +482,20 @@ def NODE_FEM_calc(state: SPAgentState) -> SPAgentState:
     print("FEM CMD:", cmd)
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, cwd=calc_path)
-        try:# 写日志
+        try:
             with open(os.path.join(calc_path, "abq.log"), "w") as logf:
                 logf.write("STDOUT:\n" + result.stdout + "\n\nSTDERR:\n" + result.stderr)
         except Exception as logerr:
             print("[WARN] 写abq.log失败:", logerr)
         content_blocks = [{"type": "text", "text": "The structure in the figure has been reconstructed as a 3D model and the compression-torsion process has been simulated:"}]
         image_files = [os.path.join(calc_path, f"frame_{i}.png") for i in range(10)] 
-        # 倒序： image_files.reverse()
+
         gif_path = os.path.join(calc_path, "animation.gif")
         images_to_gif(
             image_files=image_files,
             output_gif=gif_path,
-            duration=300,  # 每帧300毫秒
-            loop=0  # 无限循环
+            duration=300,  
+            loop=0
         )
         with open(gif_path, "rb") as f:
             gif_base64 = base64.b64encode(f.read()).decode("utf-8")
@@ -526,7 +507,6 @@ def NODE_FEM_calc(state: SPAgentState) -> SPAgentState:
             "metadata": {"name": "output.gif"}
         })
         state["messages"].append(AIMessage(content_blocks=content_blocks))
-        # 显示图片
         content_blocks = []
         for fig_path in image_files:
             if os.path.exists(fig_path):
@@ -549,9 +529,8 @@ def NODE_FEM_calc(state: SPAgentState) -> SPAgentState:
 def debug_NODE(state: SPAgentState) -> Dict[str, Any]:
     """Debug node that saves state to a JSON file."""
     if state.get("CurrentTask") == "predict_c_from_image":
-        state["user_input_image"] = None  # 重置，避免重复调用
+        state["user_input_image"] = None  
     elif state.get("CurrentTask") == "predict_image_from_c":
-        # state["PredictedStructureImage"] = None  # 重置，避免重复调用
         pass
     else:
         pass

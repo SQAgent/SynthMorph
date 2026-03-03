@@ -6,7 +6,6 @@ from SynthMorph.state import SPAgentState
 from SynthMorph.nodes import *
 
 def last_ai_message_has_tool_calls(state: SPAgentState) -> bool:
-    """检查最后一条 AI 消息是否包含 tool_calls。"""
     messages = state.get("messages", [])
     if not messages:
         return False
@@ -14,33 +13,17 @@ def last_ai_message_has_tool_calls(state: SPAgentState) -> bool:
     return isinstance(last, AIMessage) and bool(getattr(last, "tool_calls", []))
 
 def route_after_process(state: SPAgentState) -> str:
-    """
-    决定 预处理节点 之后走向：
-    - 如果 user_input_image 已经存在 -> 性能预测节点
-    - 否则 -> 回到 model 继续对话
-    """
     return "NODE_predict_c_from_image" if state.get("user_input_image") else "model"
 
 def route_after_model(state: SPAgentState) -> str:
-    """
-    决定模型节点之后走向：
-    - 如果有 tool_calls -> 进入 tools 节点
-    - 否则 -> 检查是否已经完成（check_matrix）
-    """
     return "tools" if last_ai_message_has_tool_calls(state) else "check_matrix"
 
 def route_after_check(state: SPAgentState) -> str:
-    """
-    决定 check_matrix_completion 之后走向：
-    - 如果 elastic_matrix 已经存在 -> 结束
-    - 否则 -> 回到 model 继续对话
-    """
     if state.get("elastic_matrix") is not None:
         return "predict_image_from_c"
     return "continue"
 
 def build_elastic_matrix_graph():
-    """构建并编译LangGraph图。"""
     builder = StateGraph(SPAgentState)
     # 节点
     builder.add_node("NODE_Preprocessing", NODE_Preprocessing)

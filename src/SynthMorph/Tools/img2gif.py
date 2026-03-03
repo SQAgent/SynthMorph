@@ -5,10 +5,10 @@ import os
 def images_to_gif(image_files, output_gif="output.gif", duration=500, loop=0):
 
     try:
-        # 打开所有图片
+        # Open all images
         images = [Image.open(img) for img in image_files]
         
-        # 保存为GIF
+        # Save as GIF
         images[0].save(
             output_gif,
             save_all=True,
@@ -18,15 +18,15 @@ def images_to_gif(image_files, output_gif="output.gif", duration=500, loop=0):
             optimize=True
         )
         
-        print(f"GIF已成功创建：{output_gif}")
-        print(f"包含 {len(images)} 张图片，每帧 {duration} 毫秒")
+        print(f"GIF successfully created: {output_gif}")
+        print(f"Contains {len(images)} images, {duration} ms per frame")
         
-        # 显示GIF大小
+        # Show GIF size
         gif_size = os.path.getsize(output_gif)
-        print(f"GIF文件大小：{gif_size / 1024:.2f} KB")
+        print(f"GIF file size: {gif_size / 1024:.2f} KB")
         
     except Exception as e:
-        print(f"创建GIF时出错：{e}")
+        print(f"Error creating GIF: {e}")
 
 if __name__ == "__main__":
     
@@ -43,10 +43,10 @@ if __name__ == "__main__":
                    image_path+"step_0800_sample_001.png",
                    image_path+"step_0900_sample_001.png"]
     
-    # 创建GIF
+    # Create GIF
     images_to_gif(
         image_files=image_files,
         output_gif="animation.gif",
-        duration=300,  # 每帧300毫秒
-        loop=0  # 无限循环
+        duration=300,  # 300 ms per frame
+        loop=0  # Infinite loop
         )

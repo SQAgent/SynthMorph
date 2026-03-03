@@ -6,27 +6,30 @@ import random
 
 def young_2dm(S, phi):
     """
-    计算二维杨氏模量 (Young's Modulus)。
-    
-    参数:
+    Calculate 2D Young's modulus.
+
+    Parameters:
     S : numpy.ndarray
-        3x3 对称矩阵，表示材料的弹性常数。
+        3x3 symmetric matrix representing elastic constants of the material.
     phi : float
-        方向角（弧度制）。
-    
-    返回:
+        Direction angle (in radians).
+
+    Returns:
     float
-        杨氏模量的值。
+        Value of Young's modulus.
     """
     # 计算方向余弦
+    # Calculate direction cosines
     x = np.cos(phi)
     y = np.sin(phi)
     
     # 提取矩阵 S 的分量
+    # Extract components of matrix S
     S11, S12, S13 = S[0, 0], S[0, 1], S[0, 2]
     S22, S23, S33 = S[1, 1], S[1, 2], S[2, 2]
     
     # 计算杨氏模量
+    # Calculate Young's modulus
     denominator = (S11 * x**4 + S22 * y**4 + (S33 + 2 * S12) * x**2 * y**2 +
                    2 * (S13 * x**3 * y + S23 * x * y**3))
     E = 1.0 / denominator
@@ -36,37 +39,42 @@ def young_2dm(S, phi):
 
 def poisson_2dm(S, phi, young_2dm):
     """
-    计算二维泊松比 (Poisson's Ratio)。
-    
-    参数:
+    Calculate 2D Poisson's ratio.
+
+    Parameters:
     S : numpy.ndarray
-        3x3 对称矩阵，表示材料的弹性常数。
+        3x3 symmetric matrix representing elastic constants of the material.
     phi : float
-        方向角（弧度制）。
+        Direction angle (in radians).
     young_2dm : function
-        用于计算杨氏模量的函数，接受 S 和 phi 作为参数。
-    
-    返回:
+        Function to calculate Young's modulus, accepts S and phi as parameters.
+
+    Returns:
     float
-        泊松比的值。
+        Value of Poisson's ratio.
     """
     # 计算方向余弦
+    # Calculate direction cosines
     x = np.cos(phi)
     y = np.sin(phi)
     
     # 计算杨氏模量
+    # Calculate Young's modulus
     E = young_2dm(S, phi)
     
     # 提取矩阵 S 的分量
+    # Extract components of matrix S
     S11, S12, S13 = S[0, 0], S[0, 1], S[0, 2]
     S22, S23, S33 = S[1, 1], S[1, 2], S[2, 2]
     
     # 计算泊松比的基值、幅值变化和相位角
+    # Calculate base value, amplitude change, and phase angle of Poisson's ratio
     v0 = ((S11 + S22 - S33) / 2 + 3 * S12) / 4
     rv = np.sqrt((S23 - S13)**2 + (S12 - (S11 + S22 - S33) / 2)**2) / 4
     phiv = np.arctan2((S23 - S13), (S12 - (S11 + S22 - S33) / 2))
     
     # 计算泊松比
+    # Calculate Poisson's ratio
     v = -E * (v0 + rv * np.cos(4 * phi + phiv))
     
     return v
@@ -74,32 +82,36 @@ def poisson_2dm(S, phi, young_2dm):
 
 def shear_2dm(S, phi):
     """
-    计算二维剪切模量 (Shear Modulus)。
-    
-    参数:
+    Calculate 2D shear modulus.
+
+    Parameters:
     S : numpy.ndarray
-        3x3 对称矩阵，表示材料的弹性常数。
+        3x3 symmetric matrix representing elastic constants of the material.
     phi : float
-        方向角（弧度制）。
-    
-    返回:
+        Direction angle (in radians).
+
+    Returns:
     float
-        剪切模量的值。
+        Value of shear modulus.
     """
     # 计算方向余弦
+    # Calculate direction cosines
     x = np.cos(phi)
     y = np.sin(phi)
     
     # 提取矩阵 S 的分量
+    # Extract components of matrix S
     S11, S12, S13 = S[0, 0], S[0, 1], S[0, 2]
     S22, S23, S33 = S[1, 1], S[1, 2], S[2, 2]
     
     # 计算剪切模量的基值、幅值变化和相位角
+    # Calculate base value, amplitude change, and phase angle of shear modulus
     G0 = (S11 + S12 - 2 * S12 + S33) / 8
     rG = 0.25 * np.sqrt(0.25 * (S33 + 2 * S12 - S11 - S22)**2 + (S23 - S13)**2)
     phiG = np.arctan2(2 * (S13 - S23), (S33 + 2 * S12 - S11 - S22))
     
     # 计算剪切模量
+    # Calculate shear modulus
     G = 0.25 / (G0 + rG * np.cos(4 * phi + phiG))
     
     return G
@@ -107,17 +119,18 @@ def shear_2dm(S, phi):
 
 def calc_elastic_matrix(target_E: float, target_v: float, phi: float=0): 
     """
-    从杨氏模量 通过优化推断二维弹性性质矩阵 S。
-    
-    参数:
-        target_E : float
-            目标杨氏模量。
-        phi : float
-            方向角（弧度制）,默认为0。
-    
-    返回:
+    Infer 2D elastic property matrix S from Young's modulus and Poisson's ratio by optimization.
 
-    list: 每个元素都是一个3*3的矩阵，且矩阵必定对称
+    Parameters:
+        target_E : float
+            Target Young's modulus.
+        target_v : float
+            Target Poisson's ratio.
+        phi : float
+            Direction angle (in radians), default is 0.
+
+    Returns:
+        list: Each element is a 3x3 symmetric matrix.
     """
     result_list = []
 
@@ -130,7 +143,7 @@ def calc_elastic_matrix(target_E: float, target_v: float, phi: float=0):
         return (E - target_E)**2 + (v - target_v)**2
     
     for i in range(3):
-        # 随机生成初始猜测值 initial_guess，第三个和第五个值固定为 0
+        # Randomly generate initial guess, third and fifth values are fixed to 0
         initial_guess = [random.uniform(0.1, 2) if j not in [2, 4] else 0 for j in range(6)]
         result = minimize(error, initial_guess, method='BFGS')
         S_tmp = np.array([[result.x[0], result.x[1], result.x[2]],
@@ -145,9 +158,9 @@ def calc_elastic_matrix(target_E: float, target_v: float, phi: float=0):
     return result_list
 
 if __name__ == "__main__":
-    target_E = 80.0  # 目标杨氏模量
-    target_v = -0.3    # 目标泊松比
-    phi = 0.0  # 方向角
+    target_E = 80.0  # Target Young's modulus
+    target_v = -0.3    # Target Poisson's ratio
+    phi = 0.0  # Direction angle
     result = calc_elastic_matrix(target_E, target_v, phi)
     print("Optimized Elastic Constants Matrix S:")
     for mat in result:

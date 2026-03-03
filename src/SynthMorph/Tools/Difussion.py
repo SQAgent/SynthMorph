@@ -45,36 +45,31 @@ class TopologyDataset(Dataset):
         self.device = device
         self.embeddings_cache_path = embeddings_cache_path
         
-        # 加载或计算矩阵嵌入
         self.precomputed_embeddings = self._load_or_compute_embeddings(force_recompute)
         
     def _load_or_compute_embeddings(self, force_recompute=False):
-        """加载或计算矩阵嵌入向量"""
-        # 检查缓存文件是否存在且不需要重新计算
+
         if os.path.exists(self.embeddings_cache_path) and not force_recompute:
-            print(f"从缓存文件 {self.embeddings_cache_path} 加载矩阵嵌入...")
+            print(f"Loading matrix embeddings from cache file {self.embeddings_cache_path}...")
             start_time = time.time()
             with open(self.embeddings_cache_path, 'rb') as f:
                 cache_data = pickle.load(f)
-                
-            # 验证缓存数据是否与当前数据集匹配
+
             if (cache_data['num_files'] == len(self.file_paths) and 
                 cache_data['num_sheets'] == len(self.sheet_names)):
-                print(f"加载完成，耗时 {time.time() - start_time:.2f} 秒")
+                print(f"Loading complete, time taken {time.time() - start_time:.2f} seconds")
                 return cache_data['embeddings']
             else:
-                print("缓存数据与当前数据集不匹配，重新计算嵌入...")
+                print("Cached data does not match the current dataset, recomputing embeddings...")
         
-        # 计算所有矩阵嵌入
-        print("计算矩阵嵌入...")
+        print("Computing matrix embeddings...")
         start_time = time.time()
         embeddings = []
         
         for file_idx, file_path in enumerate(self.file_paths):
-            print(f"处理文件 {file_idx+1}/{len(self.file_paths)}: {os.path.basename(file_path)}")
+            print(f"Processing file {file_idx+1}/{len(self.file_paths)}: {os.path.basename(file_path)}")
             
             for sheet_idx, C_sheet_name in enumerate(self.C_sheet_names):
-                # 读取弹性刚度矩阵C
                 C_data = pd.read_excel(file_path, sheet_name=C_sheet_name, header=None)
                 matrices = torch.tensor(C_data.values, dtype=torch.float32).unsqueeze(0)
                 
@@ -85,12 +80,10 @@ class TopologyDataset(Dataset):
                         matrix_embeddings = normalize(matrix_embeddings, dim=1)
                     embeddings.append(matrix_embeddings.cpu().numpy()[0])
                 else:
-                    # 如果没有模型，返回原始矩阵
                     embeddings.append(matrices.cpu().numpy()[0])
         
         embeddings = np.array(embeddings)
         
-        # 保存到缓存文件
         cache_data = {
             'embeddings': embeddings,
             'num_files': len(self.file_paths),
@@ -103,7 +96,7 @@ class TopologyDataset(Dataset):
         with open(self.embeddings_cache_path, 'wb') as f:
             pickle.dump(cache_data, f)
         
-        print(f"嵌入计算完成并已保存到缓存，耗时 {time.time() - start_time:.2f} 秒")
+        print(f"Embeddings computation complete and saved to cache, time taken {time.time() - start_time:.2f} seconds")
         return embeddings
     
     def __len__(self):
@@ -115,31 +108,25 @@ class TopologyDataset(Dataset):
         
         file_path = self.file_paths[file_idx]
         sheet_name = self.sheet_names[sheet_idx]
-        
-        # 读取密度场数据并转换为图像
         df = pd.read_excel(file_path, sheet_name=sheet_name, header=None)
         data = 1.0 - df.values.astype(np.float32)
         
         image = Image.fromarray((data * 255).astype(np.uint8))
         image = transforms.ToTensor()(image)
         
-        # 获取预计算的矩阵嵌入
+
         matrix_embedding = torch.tensor(self.precomputed_embeddings[idx], dtype=torch.float32)
         
         return image, matrix_embedding
 
-
-# Image Enconder
 class ImageEncoder(nn.Module):
     def __init__(self, embedding_dim=128):
         super(ImageEncoder, self).__init__()
-        # 使用新的API加载预训练的ResNet18
+
         self.cnn = models.resnet18(
             weights=models.ResNet18_Weights.IMAGENET1K_V1)
-        # 修改第一层卷积以接受单通道输入
         self.cnn.conv1 = nn.Conv2d(
             1, 64, kernel_size=7, stride=2, padding=3, bias=False)
-        # 替换最后的全连接层
         self.cnn.fc = nn.Sequential(
             nn.Linear(self.cnn.fc.in_features, 512),
             nn.ReLU(),
@@ -148,8 +135,6 @@ class ImageEncoder(nn.Module):
     def forward(self, x):
         return self.cnn(x)
 
-
-# matrix Enconder
 class MatrixEncoder(nn.Module):
     def __init__(self, input_dim=9, embedding_dim=128):
         super(MatrixEncoder, self).__init__()
@@ -164,12 +149,9 @@ class MatrixEncoder(nn.Module):
         )
 
     def forward(self, x):
-        # Flatten to 9D
         x = x.reshape(x.size(0), -1)
         return self.encoder(x)
 
-
-# 多模态对比学习模型
 class MultiModalContrastiveModel(nn.Module):
     def __init__(self, image_embedding_dim=128, matrix_embedding_dim=128):
         super(MultiModalContrastiveModel, self).__init__()
@@ -182,7 +164,6 @@ class MultiModalContrastiveModel(nn.Module):
         return image_embeddings, matrix_embeddings
 
 
-# MLP
 class MLPRegressor(nn.Module):
     def __init__(self, input_size, output_size):
         super(MLPRegressor, self).__init__()
@@ -224,13 +205,11 @@ class ConditionalUNetWithAdaLN(nn.Module):
         self.base_channels = base_channels
         self.cond_dim = cond_dim
 
-        # 时间步嵌入
         self.time_embed = nn.Sequential(
             nn.Linear(base_channels, base_channels * 2),
             nn.SiLU(),
             nn.Linear(base_channels * 2, base_channels * 2))
 
-        # 条件投影网络
         self.cond_proj_enc1 = nn.Linear(cond_dim, base_channels * 2)
         self.cond_proj_enc2 = nn.Linear(cond_dim, base_channels * 2)
         self.cond_proj_enc3 = nn.Linear(cond_dim, base_channels * 2)
@@ -241,7 +220,6 @@ class ConditionalUNetWithAdaLN(nn.Module):
         self.cond_proj_dec2 = nn.Linear(cond_dim, base_channels * 2)
         self.cond_proj_dec1 = nn.Linear(cond_dim, base_channels * 2)
 
-        # 编码器
         self.enc1_conv1 = nn.Conv2d(in_channels, base_channels, kernel_size=3,
                                     padding=1, padding_mode='circular')
         self.enc1_adaln1 = AdaLN(base_channels, base_channels * 4)
@@ -278,7 +256,6 @@ class ConditionalUNetWithAdaLN(nn.Module):
 
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
 
-        # 瓶颈层
         self.bottleneck_conv1 = nn.Conv2d(base_channels * 8, base_channels * 16,
                                           kernel_size=3, padding=1,
                                           padding_mode='circular')
@@ -288,7 +265,6 @@ class ConditionalUNetWithAdaLN(nn.Module):
                                           padding_mode='circular')
         self.bottleneck_adaln2 = AdaLN(base_channels * 16, base_channels * 4)
 
-        # 解码器
         self.up4 = nn.ConvTranspose2d(base_channels * 16, base_channels * 8,
                                       kernel_size=2, stride=2)
         self.dec4_conv1 = nn.Conv2d(base_channels * 16, base_channels * 8,
@@ -372,11 +348,9 @@ class ConditionalUNetWithAdaLN(nn.Module):
         return x
 
     def forward(self, x, t, cond):
-        # 时间步嵌入
         t_embed = self._get_timestep_embedding(t, self.base_channels)
         t_embed = self.time_embed(t_embed)
 
-        # 为每个层级准备条件嵌入
         cond_embed_enc1 = torch.cat(
             [self.cond_proj_enc1(cond), t_embed], dim=1)
         cond_embed_enc2 = torch.cat(
@@ -396,7 +370,6 @@ class ConditionalUNetWithAdaLN(nn.Module):
         cond_embed_dec1 = torch.cat(
             [self.cond_proj_dec1(cond), t_embed], dim=1)
 
-        # 编码器路径
         e1, e1_pool = self._encoder_block(x, cond_embed_enc1,
                                           self.enc1_conv1, self.enc1_adaln1,
                                           self.enc1_conv2, self.enc1_adaln2)
@@ -410,7 +383,6 @@ class ConditionalUNetWithAdaLN(nn.Module):
                                           self.enc4_conv1, self.enc4_adaln1,
                                           self.enc4_conv2, self.enc4_adaln2)
 
-        # 瓶颈层
         bottleneck_input = self.pool(e4_pool)
         b = self.bottleneck_conv1(bottleneck_input)
         b = self.bottleneck_adaln1(b, cond_embed_bottleneck)
@@ -419,7 +391,6 @@ class ConditionalUNetWithAdaLN(nn.Module):
         b = self.bottleneck_adaln2(b, cond_embed_bottleneck)
         b = self.silu(b)
 
-        # 解码器路径
         d4 = self.up4(b)
         d4 = torch.cat([d4, e4_pool], dim=1)
         d4 = self._decoder_block(d4, cond_embed_dec4,
@@ -456,13 +427,11 @@ class DiffusionInference:
         self.device = device
         self.timesteps = timesteps
 
-        # 加载模型配置
         with open(config_path, 'r') as f:
             self.config = json.load(f)
 
-        print(f"加载模型配置: {self.config}")
+        print(f"Loading model configuration: {self.config}")
 
-        # 初始化模型
         self.model = ConditionalUNetWithAdaLN(
             in_channels=self.config['in_channels'],
             out_channels=self.config['out_channels'],
@@ -470,28 +439,25 @@ class DiffusionInference:
             base_channels=self.config['base_channels']
         ).to(device)
 
-        # 加载模型权重
         if model_path.endswith('.pth'):
             checkpoint = torch.load(model_path, map_location=device)
             if 'model_state_dict' in checkpoint:
-                # 完整检查点文件
+
                 self.model.load_state_dict(checkpoint['model_state_dict'])
-                print(f"从检查点加载模型，训练轮数: {checkpoint.get('epoch', '未知')}")
+                print(f"Loaded model from checkpoint, training epoch: {checkpoint.get('epoch', 'unknown')}")
             else:
-                # 仅权重文件
                 self.model.load_state_dict(checkpoint)
-                print("加载模型权重文件")
+                print("Loaded model weights file")
         else:
-            raise ValueError("模型文件格式不支持")
+            raise ValueError("Unsupported model file format")
 
         self.model.eval()
-        print("模型加载完成，进入评估模式")
+        print("Model loaded, entering evaluation mode")
 
-        # 设置扩散参数（与训练时一致）
         self._setup_diffusion_parameters()
 
     def _setup_diffusion_parameters(self):
-        """设置扩散过程参数（与训练代码保持一致）"""
+        """Set up diffusion process parameters (consistent with training code)"""
         beta_start = 1e-4
         beta_end = 0.02
 
@@ -504,11 +470,9 @@ class DiffusionInference:
         self.sqrt_one_minus_alphas_cumprod = torch.sqrt(
             1. - self.alphas_cumprod)
 
-        # 计算后验方差
         self.posterior_variance = self.betas * \
             (1. - self.alphas_cumprod_prev) / (1. - self.alphas_cumprod)
 
-        # 转移到设备
         self.betas = self.betas.to(self.device)
         self.alphas = self.alphas.to(self.device)
         self.alphas_cumprod = self.alphas_cumprod.to(self.device)
@@ -519,48 +483,42 @@ class DiffusionInference:
         self.posterior_variance = self.posterior_variance.to(self.device)
 
     def _extract(self, a, t, x_shape):
-        """从张量a中提取时间步t对应的值"""
+
         batch_size = t.shape[0]
-        out = a.gather(-1, t.to(self.device)).to(t.device)  # 修复：确保在正确设备上
+        out = a.gather(-1, t.to(self.device)).to(t.device)  
         return out.reshape(batch_size, *((1,) * (len(x_shape) - 1)))
 
     @torch.no_grad()
     def p_sample(self, x, t, cond):
-        """从p(x_{t-1} | x_t)采样 - 修复版本"""
-        # 预测噪声
+
         pred_noise = self.model(x, t, cond)
 
-        # 计算均值
         sqrt_alpha_cumprod_t = self._extract(
             self.sqrt_alphas_cumprod, t, x.shape)
         sqrt_one_minus_alpha_cumprod_t = self._extract(
             self.sqrt_one_minus_alphas_cumprod, t, x.shape)
 
-        # 估计原始图像 x0
         pred_x0 = (x - sqrt_one_minus_alpha_cumprod_t *
                    pred_noise) / sqrt_alpha_cumprod_t
         pred_x0 = torch.clamp(pred_x0, -1.0, 1.0)
 
-        # 修复：使用提取的时间步参数而不是整个序列
         alpha_t = self._extract(self.alphas, t, x.shape)
         alpha_cumprod_t = self._extract(self.alphas_cumprod, t, x.shape)
         alpha_cumprod_prev_t = self._extract(
             self.alphas_cumprod_prev, t, x.shape)
         beta_t = self._extract(self.betas, t, x.shape)
 
-        # 计算后验均值的系数 - 修复版本
         posterior_mean_coef1 = beta_t * \
             torch.sqrt(alpha_cumprod_prev_t) / (1. - alpha_cumprod_t)
         posterior_mean_coef2 = (1. - alpha_cumprod_prev_t) * \
             torch.sqrt(alpha_t) / (1. - alpha_cumprod_t)
 
-        # 计算后验均值
         posterior_mean = posterior_mean_coef1 * pred_x0 + posterior_mean_coef2 * x
 
         if t[0] == 0:
             return posterior_mean
         else:
-            # 添加噪声
+
             noise = torch.randn_like(x)
             posterior_variance_t = self._extract(
                 self.posterior_variance, t, x.shape)
@@ -571,20 +529,20 @@ class DiffusionInference:
                  show_progress=True, save_intermediate=False, intermediate_steps=20,
                  intermediate_dir="generation_process"):
         """
-        生成图像，可选择保存中间过程
+        Generate images with optional intermediate saving.
         Args:
-            cond_embedding: 条件嵌入向量 [cond_dim] 或 [batch_size, cond_dim]
-            num_samples: 生成样本数量
-            image_size: 图像尺寸
-            save_path: 保存路径（可选）
-            show_progress: 是否显示进度条
-            save_intermediate: 是否保存中间过程图像
-            intermediate_steps: 保存中间过程的步数（每隔多少步保存一次）
-            intermediate_dir: 中间过程图像的保存目录
+            cond_embedding: Conditional embedding vector [cond_dim] or [batch_size, cond_dim]
+            num_samples: Number of samples to generate
+            image_size: Image size
+            save_path: Path to save the generated images (optional)
+            show_progress: Whether to display a progress bar
+            save_intermediate: Whether to save intermediate images
+            intermediate_steps: Number of steps to save intermediate images (save every n steps)
+            intermediate_dir: Directory to save intermediate images
         Returns:
-            生成的图像张量 [num_samples, 1, image_size, image_size] 和中间过程列表（如果保存）
+            Generated image tensor [num_samples, 1, image_size, image_size] and list of intermediate images (if saved)
         """
-        # 处理条件嵌入
+
         if isinstance(cond_embedding, np.ndarray):
             cond_embedding = torch.tensor(
                 cond_embedding, dtype=torch.float32, device=self.device)
@@ -594,12 +552,11 @@ class DiffusionInference:
         elif cond_embedding.dim() == 2 and cond_embedding.shape[0] == 1:
             cond_embedding = cond_embedding.repeat(num_samples, 1)
 
-        assert cond_embedding.shape[0] == num_samples, "条件嵌入的batch_size必须与num_samples匹配"
+        assert cond_embedding.shape[0] == num_samples, "The batch size of the conditional embedding must match num_samples"
 
-        print(f"生成 {num_samples} 个样本，图像尺寸: {image_size}x{image_size}")
-        print(f"条件嵌入形状: {cond_embedding.shape}")
+        print(f"Generating {num_samples} samples, image size: {image_size}x{image_size}")
+        print(f"Conditional embedding shape: {cond_embedding.shape}")
 
-        # 从随机噪声开始
         seed = 49
         torch.manual_seed(seed)
         if torch.cuda.is_available():
@@ -608,37 +565,32 @@ class DiffusionInference:
         x = torch.randn(num_samples, 1, image_size,
                         image_size, device=self.device)
 
-        # 存储中间过程
+
         intermediate_images = []
 
-        # 反向扩散过程
         iterator = range(self.timesteps - 1, -1, -1)
         if show_progress:
-            iterator = tqdm(iterator, desc="生成图像")
+            iterator = tqdm(iterator, desc="Generating images")
 
         for i in iterator:
             t = torch.full((num_samples,), i,
                            device=self.device, dtype=torch.long)
             x = self.p_sample(x, t, cond_embedding)
 
-            # 保存中间过程
             if save_intermediate and (i % intermediate_steps == 0 or i == 0):
-                # 将图像从[-1,1]转换到[0,1]
+
                 intermediate_img = x  # (x + 1) / 2
                 intermediate_img = torch.clamp(intermediate_img, 0, 1)
                 intermediate_images.append(intermediate_img.cpu().clone())
 
-        # 最终图像处理
         generated_images = x  # (x + 1) / 2
         generated_images = torch.clamp(generated_images, 0, 1)
 
-        # 保存最终图像
         if save_path:
             os.makedirs(os.path.dirname(save_path) if os.path.dirname(
                 save_path) else '.', exist_ok=True)
             self._save_images(generated_images, save_path)
 
-        # 保存中间过程图像
         if save_intermediate and intermediate_images:
             self._save_intermediate_images(
                 intermediate_images, intermediate_dir)
@@ -646,47 +598,41 @@ class DiffusionInference:
         return generated_images, intermediate_images
 
     def _save_images(self, images, save_path):
-        """保存生成的图像"""
+        """save generated images to disk, supports saving single or multiple images"""
         if images.shape[0] == 1:
-            # 单张图像
+
             img = images[0, 0].cpu().numpy()
             img = (img * 255).astype(np.uint8)
-            # 简单的线性映射
+
             start_color = np.array([83, 111, 122], dtype=np.float32)
             end_color = np.array([255, 255, 255], dtype=np.float32)
-            
-            # 将灰度值归一化到[0,1]
+
             gray_normalized = img / 255.0
-            
-            # 创建彩色图像
+
             height, width = img.shape
             colored_img = np.zeros((height, width, 3), dtype=np.uint8)
-            
-            # 对每个通道应用线性插值
+
             for c in range(3):
                 channel_values = start_color[c] + gray_normalized * (end_color[c] - start_color[c])
                 colored_img[..., c] = np.clip(channel_values, 0, 255).astype(np.uint8)
             
             Image.fromarray(img).save(save_path)
-            print(f"图像已保存: {save_path}")
+            print(f"Image saved: {save_path}")
         else:
-            # 多张图像
+
             base_name, ext = os.path.splitext(save_path)
             for i in range(images.shape[0]):
                 img = images[i, 0].cpu().numpy()
                 img = (img * 255).astype(np.uint8)
-                # 简单的线性映射
+
                 start_color = np.array([83, 111, 122], dtype=np.float32)
                 end_color = np.array([255, 255, 255], dtype=np.float32)
-                
-                # 将灰度值归一化到[0,1]
+
                 gray_normalized = img / 255.0
-                
-                # 创建彩色图像
+
                 height, width = img.shape
                 colored_img = np.zeros((height, width, 3), dtype=np.uint8)
-                
-                # 对每个通道应用线性插值
+
                 for c in range(3):
                     channel_values = start_color[c] + gray_normalized * (end_color[c] - start_color[c])
                     colored_img[..., c] = np.clip(channel_values, 0, 255).astype(np.uint8)
@@ -694,34 +640,31 @@ class DiffusionInference:
                 
                 Image.fromarray(img).save(img_path)
             print(
-                f"{images.shape[0]} 张图像已保存到: {base_name}_*.{ext.split('.')[-1]}")
+                f"{images.shape[0]} images have been saved to: {base_name}_*.{ext.split('.')[-1]}")
 
     def _save_intermediate_images(self, intermediate_images, save_dir):
-        """保存中间过程图像"""
+        """Save intermediate process images"""
         os.makedirs(save_dir, exist_ok=True)
 
         for i, img_tensor in enumerate(intermediate_images):
-            # 计算对应的时间步
+
             timestep = len(intermediate_images) - 1 - i
             actual_timestep = timestep * \
                 (self.timesteps // len(intermediate_images))
 
-            # 保存每张中间图像
             for j in range(img_tensor.shape[0]):
                 img = img_tensor[j, 0].numpy()
                 img = (img * 255).astype(np.uint8)
-                # 简单的线性映射
+
                 start_color = np.array([83, 111, 122], dtype=np.float32)
                 end_color = np.array([255, 255, 255], dtype=np.float32)
                 
-                # 将灰度值归一化到[0,1]
+
                 gray_normalized = img / 255.0
-                
-                # 创建彩色图像
+
                 height, width = img.shape
                 colored_img = np.zeros((height, width, 3), dtype=np.uint8)
-                
-                # 对每个通道应用线性插值
+
                 for c in range(3):
                     channel_values = start_color[c] + gray_normalized * (end_color[c] - start_color[c])
                     colored_img[..., c] = np.clip(channel_values, 0, 255).astype(np.uint8)
@@ -730,42 +673,40 @@ class DiffusionInference:
                 filepath = os.path.join(save_dir, filename)
                 Image.fromarray(colored_img).save(filepath)
 
-        print(f"中间过程图像已保存到: {save_dir}")
+        print(f"Intermediate images have been saved to: {save_dir}")
 
-        # 创建过程动画（可选）
         self._create_process_gif(intermediate_images, save_dir)
 
     def _create_process_gif(self, intermediate_images, save_dir):
-        """创建生成过程的GIF动画"""
+        """Create a GIF animation of the generation process"""
         try:
             images_for_gif = []
             for i, img_tensor in enumerate(intermediate_images):
-                # 使用第一张样本创建GIF
+
                 img = img_tensor[0, 0].numpy()
                 img = (img * 255).astype(np.uint8)
                 pil_img = Image.fromarray(img)
                 images_for_gif.append(pil_img)
 
-            # 保存为GIF
             gif_path = os.path.join(save_dir, "generation_process.gif")
             images_for_gif[0].save(
                 gif_path,
                 save_all=True,
                 append_images=images_for_gif[1:],
-                duration=150,  # 每帧500ms
+                duration=150, 
                 loop=0
             )
-            print(f"生成过程GIF已保存: {gif_path}")
+            print(f"Generation process GIF saved: {gif_path}")
         except Exception as e:
-            print(f"创建GIF失败: {e}")
+            print(f"Failed to create GIF: {e}")
 
     def generate_with_different_conditions(self, cond_embeddings, image_size=100, save_dir="generated_results"):
         """
-        为不同的条件嵌入生成图像
+        Generate images for different conditional embeddings
         Args:
-            cond_embeddings: 条件嵌入列表或数组 [num_conditions, cond_dim]
-            image_size: 图像尺寸
-            save_dir: 保存目录
+            cond_embeddings: List or array of conditional embeddings [num_conditions, cond_dim]
+            image_size: Image size
+            save_dir: Directory to save the generated images
         """
         os.makedirs(save_dir, exist_ok=True)
 
@@ -774,9 +715,8 @@ class DiffusionInference:
 
         results = []
         for i, cond_emb in enumerate(cond_embeddings):
-            print(f"为条件 {i+1}/{len(cond_embeddings)} 生成图像...")
+            print(f"Generating images for condition {i+1}/{len(cond_embeddings)}...")
 
-            # 为每个条件生成一个样本
             generated, _ = self.generate(
                 cond_embedding=cond_emb.unsqueeze(0),
                 num_samples=1,
@@ -787,63 +727,58 @@ class DiffusionInference:
 
             results.append(generated)
 
-        print(f"所有图像已生成并保存到: {save_dir}")
+        print(f"All images have been generated and saved to: {save_dir}")
         return torch.cat(results, dim=0)
 
 
 def Picture_Load(image_path):
 
     if image_path == None:
-        image_path = input("请输入图片路径: ").strip()
+        image_path = input("Please enter the image path: ").strip()
 
     if not os.path.exists(image_path):
-        print(f"错误: 文件 '{image_path}' 不存在")
+        print(f"Error: File '{image_path}' does not exist")
         return None
 
-    # 读取图片
     image = cv2.imread(image_path)
 
     if image is None:
-        print(f"错误: 无法加载图片 '{image_path}'，请检查文件格式")
+        print(f"Error: Failed to load image '{image_path}', please check the file format")
         return None
 
-    # 获取图片尺寸
     height, width = image.shape[:2]
-    print(f"图片尺寸: {width}×{height} 像素")
+    print(f"Image size: {width}×{height} pixels")
 
-    # 检查图片尺寸是否为100x100
     if width != 100 or height != 100:
 
-        print(f"错误: 图片尺寸不是100×100像素，而是{width}×{height}像素，将自动缩放...")
+        print(f"Error: Image size is not 100×100 pixels, but {width}×{height} pixels. It will be automatically resized...")
         image = cv2.resize(image, (100, 100), interpolation=cv2.INTER_AREA)
-        print(f"✓ 已缩放为100×100像素 (直接缩放)")
+        print(f"✓ Resized to 100×100 pixels (direct scaling)")
         
-    print("✓ 图片尺寸符合要求 (100×100像素)")
+    print("✓ Image size is correct (100×100 pixels)")
 
-    # 转换为单通道灰度图
     if len(image.shape) == 3:
         gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        print("✓ 已转换为单通道灰度图")
+        print("✓ Converted to single-channel grayscale")
     else:
         gray_image = image
-        print("✓ 图片已经是单通道")
+        print("✓ Image is already single-channel")
 
-    # 检查灰度图的范围并转换为0-1范围的密度场矩阵
-    # 根据输入图像的亮度范围进行归一化
+
     min_val = np.min(gray_image)
     max_val = np.max(gray_image)
 
     if max_val > min_val:
-        # 归一化到0-1范围
+
         density_matrix = (gray_image.astype(np.float32) -
                           min_val) / (max_val - min_val)
-        print(f"✓ 已归一化到0-1范围 (原始范围: {min_val}-{max_val})")
+        print(f"✓ Normalized to 0-1 range (original range: {min_val}-{max_val})")
     else:
-        # 如果所有像素值相同，创建全0或全1矩阵
+
         density_matrix = np.zeros((100, 100), dtype=np.float32)
         if min_val > 0:
             density_matrix[:, :] = 1.0
-        print("✓ 创建常数值密度场矩阵")
+        print("✓ Created constant density matrix")
     return density_matrix
 
 
@@ -866,7 +801,6 @@ def Predict_C_from_image(Picture_path, CL_path, MLP_path, device, output_dir="."
         query_embedding = normalize(query_embedding, dim=1)
 
     print(f"Query image embedding : {query_embedding}")
-    # print(query_embedding)
 
     checkpoint = torch.load(MLP_path,
                             map_location=device,
@@ -880,7 +814,7 @@ def Predict_C_from_image(Picture_path, CL_path, MLP_path, device, output_dir="."
     with torch.no_grad():
         predictions = model_MLP(query_embedding).cpu().numpy()[0].tolist()
 
-    # Result print
+
     C11, C22, C33, C12, C13, C23 = predictions
 
     print(C11, '\t', C12 ,'\t', C13)
@@ -902,25 +836,25 @@ def Generate_image_from_C(C, CL_path, Dif_path, config_path, device, output_dir=
                             map_location=device)
     model_CL.load_state_dict(checkpoint['model_state_dict'])
 
-    # file_path = '/home/wmh/density_field/'+file_name+'.xlsx'
+
 
     if C is None:
         C = []
         for i in range(3):
             while True:
                 try:
-                    row_input = input(f"第{i+1}行: ")
+                    row_input = input(f"Row {i+1}: ")
                     row_values = [float(x) for x in row_input.split()]
 
                     if len(row_values) != 3:
-                        print("每行需要输入3个数值，请重新输入")
+                        print("Each row must contain 3 values, please re-enter")
                         continue
 
                     C.append(row_values)
                     break
 
                 except ValueError:
-                    print("输入格式错误，请输入三个用空格分隔的数值，如: 0.071 -0.032 -0.031")
+                    print("Input format error, please enter three values separated by spaces, e.g.: 0.071 -0.032 -0.031")
 
         np.array(C)
 
@@ -936,7 +870,7 @@ def Generate_image_from_C(C, CL_path, Dif_path, config_path, device, output_dir=
     print(f"Query C embedding : {query_embedding}")
 
 
-    # 初始化推理器
+
     model_path = Dif_path
     # config_path = pth_path + "model_config_adaln.json" #####
 
@@ -954,37 +888,35 @@ def Generate_image_from_C(C, CL_path, Dif_path, config_path, device, output_dir=
             image_size=100,
             save_path=save_path,
             show_progress=True,
-            save_intermediate=True,  # 启用中间过程保存
-            intermediate_steps=50,   # 每50步保存一次
-            intermediate_dir=intermediate_dir  # 中间过程保存目录
+            save_intermediate=True, 
+            intermediate_steps=50,  
+            intermediate_dir=intermediate_dir  
         )
-        print(f"生成图像形状: {generated_image.shape}")
-        print(f"保存了 {len(intermediate_images)} 张中间过程图像")
-        print("\n=== 推理完成 ===")
+        print(f"Generated image shape: {generated_image.shape}")
+        print(f"Saved {len(intermediate_images)} intermediate images")
+        print("\n=== Inference completed ===")
         return generated_image, C
 
     except Exception as e:
-        print(f"推理过程中出现错误: {e}")
+        print(f"Error during inference: {e}")
         import traceback
         traceback.print_exc()
 
 
 def get_file_and_sheet_info(dataset, indices):
-    """获取指定索引对应的文件名和sheet名称"""
+    """Get the file name and sheet name corresponding to the specified indices"""
     result = []
     
     for idx in indices:
         if idx >= len(dataset):
-            print(f"索引 {idx} 超出数据集范围（最大索引为 {len(dataset)-1}）")
+            print(f"Index {idx} is out of range (maximum index is {len(dataset)-1})")
             continue
             
-        # 计算文件索引和sheet索引
         file_idx = idx // len(dataset.sheet_names)
         sheet_idx = idx % len(dataset.sheet_names)
         
-        # 获取文件路径和sheet名称
         file_path = dataset.file_paths[file_idx]
-        file_name = os.path.basename(file_path)  # 提取文件名
+        file_name = os.path.basename(file_path)  
         sheet_name = dataset.sheet_names[sheet_idx]
         
         result.append({
@@ -1000,19 +932,19 @@ def get_file_and_sheet_info(dataset, indices):
 
 
 def load_split_info(filename="dataset_split_info.json"):
-    """加载数据集划分信息并返回相关信息"""
+
     if not os.path.exists(filename):
-        print(f"文件 {filename} 不存在")
+        print(f"File {filename} does not exist")
         return None
     
     with open(filename, 'r') as f:
         split_info = json.load(f)
     
-    print(f"从 {filename} 加载数据集划分信息")
-    print(f"训练集大小: {split_info['train_size']} ({split_info['train_ratio']*100:.1f}%)")
-    print(f"测试集大小: {split_info['test_size']} ({split_info['test_ratio']*100:.1f}%)")
-    print(f"划分时间: {split_info['split_time']}")
-    
+    print(f"Loading dataset split information from {filename}")
+    print(f"Training set size: {split_info['train_size']} ({split_info['train_ratio']*100:.1f}%)")
+    print(f"Test set size: {split_info['test_size']} ({split_info['test_ratio']*100:.1f}%)")
+    print(f"Split time: {split_info['split_time']}")
+        
     return split_info
 
 def predict(Picture_path = None, C = None, output_dir = "."):
@@ -1023,7 +955,7 @@ def predict(Picture_path = None, C = None, output_dir = "."):
     Dif_model = "final_diffusion_model_adaln_weights_3.pth"
     config = "model_config_adaln_3.json"
     if Picture_path == None and C is None:
-        print("请至少提供图片路径或弹性张量C")
+        print("Please provide at least a picture path or elastic tensor C")
         return
     if Picture_path is not None:
         output_path, C_end = Predict_C_from_image(Picture_path, pth_path+CL_model,

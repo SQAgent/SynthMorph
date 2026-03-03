@@ -5,16 +5,16 @@ import json
 
 def QwenProcess(llm_response: str):
     """
-    Qwen 模型的预处理方案，删除思考过程并提取工具调用内容
-    llm_response: str Qwen 模型的文本响应
-    </think> 标签前面是思考过程
-    <tool_call></tool_call> 标签内是工具调用内容
-    其余部分是回复内容
+    Preprocessing scheme for Qwen model: remove thinking process and extract tool call content.
+    llm_response: str Qwen model text response
+    Content before </think> tag is the thinking process.
+    Content inside <tool_call></tool_call> tags is the tool call content.
+    The rest is the reply content.
 
     return:
-    think_part: str 思考过程
-    tool_call_content: dict or None 工具调用内容，若无则为 None
-    response_part: str 回复内容
+    think_part: str Thinking process
+    tool_call_content: dict or None Tool call content, None if not present
+    response_part: str Reply content
     """
     match = re.match(r'(.*?)</think>', llm_response, re.DOTALL)
     if match:
@@ -26,11 +26,11 @@ def QwenProcess(llm_response: str):
     
     match_tool = re.search(r'<tool_call>(.*?)</tool_call>', others_part, re.DOTALL)
     if match_tool:
-        tool_call_content = match_tool.group(1).strip()  # 仅提取标签内的内容
+        tool_call_content = match_tool.group(1).strip()  # Only extract content inside the tag
         try:
-            tool_call_content = json.loads(tool_call_content)  # 尝试将内容解析为 JSON
+            tool_call_content = json.loads(tool_call_content)  # Try to parse content as JSON
         except json.JSONDecodeError:
-            tool_call_content = None  # 如果解析失败，返回 None
+            tool_call_content = None  # If parsing fails, return None
         before_tool = others_part[:match_tool.start()].strip()
         after_tool = others_part[match_tool.end():].strip()
         response_part = "\n".join(filter(None, [before_tool, after_tool]))
@@ -40,16 +40,16 @@ def QwenProcess(llm_response: str):
     return think_part, tool_call_content, response_part
 
 
-example = """用update_matrix_elements传递所有元素后，再向用户反馈收集完成，并展示矩阵。 </think>
+example = """After passing all elements with update_matrix_elements, feedback is given to the user that collection is complete and the matrix is displayed. </think>
 <tool_call> {"name": "update_matrix_elements", "arguments": {"elements": {"C11": 1, "C12": 2, "C13": 0, "C22": 1, "C23": 0, "C33": 8}}} </tool_call>
-已为您记录完整的3×3弹性刚度矩阵（单位：GPa）：
+The complete 3×3 elastic stiffness matrix (unit: GPa) has been recorded for you:
 C = [ [1, 2, 0], [2, 1, 0], [0, 0, 8] ]
-所有6个独立元素已完整收集，矩阵验证通过。
+All 6 independent elements have been fully collected, matrix verification passed.
 """
 if __name__ == "__main__":
     think_part, tool_call_content, response_part = QwenProcess(example)
-    print("思考过程：", think_part)
-    print("工具调用：", tool_call_content)
+    print("Thinking process:", think_part)
+    print("Tool call:", tool_call_content)
     print(type(tool_call_content))
-    print("回复内容：", response_part)
+    print("Reply content:", response_part)
 
