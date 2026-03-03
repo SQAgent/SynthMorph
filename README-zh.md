@@ -15,5 +15,5 @@ langgraph dev
 git add .
 git status 
 git commit -m "update"
-git push -u SynthMorph main 
+git push -u origin main 
 ```
