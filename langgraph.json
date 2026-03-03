@@ -1,0 +1,9 @@
+{
+  "$schema": "https://langgra.ph/schema.json",
+  "dependencies": ["."],
+  "graphs": {
+    "AgentCheck":"./src/SynthMorph/AgentCheck.py:agent"
+  },
+  "env": ".env",
+  "image_distro": "wolfi"
+}
