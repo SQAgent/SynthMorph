@@ -18,17 +18,17 @@ def young_2dm(S, phi):
     float
         Value of Young's modulus.
     """
-    # 计算方向余弦
+
     # Calculate direction cosines
     x = np.cos(phi)
     y = np.sin(phi)
     
-    # 提取矩阵 S 的分量
+
     # Extract components of matrix S
     S11, S12, S13 = S[0, 0], S[0, 1], S[0, 2]
     S22, S23, S33 = S[1, 1], S[1, 2], S[2, 2]
     
-    # 计算杨氏模量
+
     # Calculate Young's modulus
     denominator = (S11 * x**4 + S22 * y**4 + (S33 + 2 * S12) * x**2 * y**2 +
                    2 * (S13 * x**3 * y + S23 * x * y**3))
@@ -53,27 +53,26 @@ def poisson_2dm(S, phi, young_2dm):
     float
         Value of Poisson's ratio.
     """
-    # 计算方向余弦
+
     # Calculate direction cosines
     x = np.cos(phi)
     y = np.sin(phi)
     
-    # 计算杨氏模量
+
     # Calculate Young's modulus
     E = young_2dm(S, phi)
     
-    # 提取矩阵 S 的分量
+
     # Extract components of matrix S
     S11, S12, S13 = S[0, 0], S[0, 1], S[0, 2]
     S22, S23, S33 = S[1, 1], S[1, 2], S[2, 2]
     
-    # 计算泊松比的基值、幅值变化和相位角
+
     # Calculate base value, amplitude change, and phase angle of Poisson's ratio
     v0 = ((S11 + S22 - S33) / 2 + 3 * S12) / 4
     rv = np.sqrt((S23 - S13)**2 + (S12 - (S11 + S22 - S33) / 2)**2) / 4
     phiv = np.arctan2((S23 - S13), (S12 - (S11 + S22 - S33) / 2))
-    
-    # 计算泊松比
+
     # Calculate Poisson's ratio
     v = -E * (v0 + rv * np.cos(4 * phi + phiv))
     
@@ -94,23 +93,21 @@ def shear_2dm(S, phi):
     float
         Value of shear modulus.
     """
-    # 计算方向余弦
+
     # Calculate direction cosines
     x = np.cos(phi)
     y = np.sin(phi)
-    
-    # 提取矩阵 S 的分量
+
     # Extract components of matrix S
     S11, S12, S13 = S[0, 0], S[0, 1], S[0, 2]
     S22, S23, S33 = S[1, 1], S[1, 2], S[2, 2]
     
-    # 计算剪切模量的基值、幅值变化和相位角
+
     # Calculate base value, amplitude change, and phase angle of shear modulus
     G0 = (S11 + S12 - 2 * S12 + S33) / 8
     rG = 0.25 * np.sqrt(0.25 * (S33 + 2 * S12 - S11 - S22)**2 + (S23 - S13)**2)
     phiG = np.arctan2(2 * (S13 - S23), (S33 + 2 * S12 - S11 - S22))
-    
-    # 计算剪切模量
+
     # Calculate shear modulus
     G = 0.25 / (G0 + rG * np.cos(4 * phi + phiG))
     

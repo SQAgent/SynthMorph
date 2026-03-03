@@ -204,7 +204,7 @@ def model_node(state: SPAgentState) -> SPAgentState:
     if not has_system:  
         llm_messages = [SYSTEM_PROMPT] + llm_messages  
       
-    print(f"原始消息数量: {len(messages)}, 过滤后消息数量: {len(llm_messages)}")  
+    print(f"Origin message: {len(messages)}, Filtered message: {len(llm_messages)}")  
     response = llm.bind_tools(TOOLS).invoke(llm_messages)
     think_part, tool_call_content, response_part = QwenProcess(response.content)
     print("[DEBUG] LLM think_part:", think_part)
@@ -409,7 +409,7 @@ def NODE_Structure_Create(state:SPAgentState)-> SPAgentState:
             with open(os.path.join(calc_path, "abq.log"), "w") as logf:
                 logf.write("STDOUT:\n" + result.stdout + "\n\nSTDERR:\n" + result.stderr)
         except Exception as logerr:
-            print("[WARN] 写abq.log失败:", logerr)
+            print("[WARN] error write abq.log:", logerr)
         content_blocks = [{"type": "text", "text": "The structure in the figure has been reconstructed as a 3D model."}]
         fig_path = os.path.join(calc_path, f"model.png")
         with open(fig_path, "rb") as f:
@@ -486,7 +486,7 @@ def NODE_FEM_calc(state: SPAgentState) -> SPAgentState:
             with open(os.path.join(calc_path, "abq.log"), "w") as logf:
                 logf.write("STDOUT:\n" + result.stdout + "\n\nSTDERR:\n" + result.stderr)
         except Exception as logerr:
-            print("[WARN] 写abq.log失败:", logerr)
+            print("[WARN] error write abq.log:", logerr)
         content_blocks = [{"type": "text", "text": "The structure in the figure has been reconstructed as a 3D model and the compression-torsion process has been simulated:"}]
         image_files = [os.path.join(calc_path, f"frame_{i}.png") for i in range(10)] 
 

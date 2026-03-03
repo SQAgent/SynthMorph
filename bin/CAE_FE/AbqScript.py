@@ -29,7 +29,7 @@ Subroutine = '/home/shangqing/sqdata/model/wmh/uhyper_gent.f'
 import sys
 print(len(sys.argv))
 if len(sys.argv) != 9:
-    print("用法: abq2022 cae noGUI=LLM_CAE_FE_2.py -- <file_path>")
+    print("useage: abq2022 cae noGUI=LLM_CAE_FE_2.py -- <file_path>")
     sys.exit(1)
 file_path = sys.argv[-1]
 file_path = os.path.abspath(file_path)
