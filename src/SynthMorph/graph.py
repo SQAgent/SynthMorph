@@ -25,7 +25,6 @@ def route_after_check(state: SPAgentState) -> str:
 
 def build_elastic_matrix_graph():
     builder = StateGraph(SPAgentState)
-    # 节点
     builder.add_node("NODE_Preprocessing", NODE_Preprocessing)
     builder.add_node("NODE_predict_c_from_image", NODE_predict_c_from_image)
     builder.add_node("NODE_analyze_C", NODE_analyze_C)
@@ -38,7 +37,6 @@ def build_elastic_matrix_graph():
     builder.add_node("NODE_FEM_calc", NODE_FEM_calc)
     builder.add_node("debug", debug_NODE)
 
-    # 边
     builder.add_edge(START, "NODE_Preprocessing")
     builder.add_conditional_edges(
         "NODE_Preprocessing", 
